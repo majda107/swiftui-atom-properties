@@ -135,7 +135,48 @@ public struct AtomScope<Content: View>: View {
     ///
     /// - Returns: The self instance.
     public func override<Node: Atom>(_ atom: Node, with value: @escaping (Node) -> Node.Loader.Value) -> Self {
-        mutating { $0.overrides[OverrideKey(atom)] = AtomOverride(value: value) }
+        print("ATOM OVERRIDING (v1) !!!")
+        
+        let s = mutating {
+            let key = OverrideKey(atom)
+            let override = AtomOverride(value: value, atom: atom)
+            
+            $0.overrides[key] = override
+            
+            //$0.store?.invalidateOverride(atom: atom, override: override)
+            
+            /*
+            if let store = $0.store {
+                $0.store = store.scoped(
+                    key: ScopeKey(token: state.token),
+                    observers: observers,
+                    overrides: overrides
+                )
+                
+                $0.store?.invalidate(atom: atom)
+            }
+            */
+        }
+        
+        return s
+    }
+    
+    /*
+    public func invalidate<Node: Atom>(_ atom: Node) -> Self {
+        if let store = self.store {
+            store.invalidate(atom: atom)
+        }
+        
+        return self
+    }
+    */
+     
+    public func setValue<Node: StateAtom>(_ value: Node.Loader.Value, for atom: Node) -> Self {
+        if let store = self.store {
+            store.set(value, for: atom)
+        }
+        
+        return self
     }
 
     /// Override the atom value used in this scope with the given value.
@@ -152,9 +193,14 @@ public struct AtomScope<Content: View>: View {
     ///   - value: A value that to be used instead of the atom's value.
     ///
     /// - Returns: The self instance.
+    ///
+    
+    /*
     public func override<Node: Atom>(_ atomType: Node.Type, with value: @escaping (Node) -> Node.Loader.Value) -> Self {
-        mutating { $0.overrides[OverrideKey(atomType)] = AtomOverride(value: value) }
+        print("ATOM OVERRIDING (v2) !!!")
+        return mutating { $0.overrides[OverrideKey(atomType)] = AtomOverride(value: value, atom: (nil as Node.Type)) }
     }
+     */
 }
 
 private extension AtomScope {

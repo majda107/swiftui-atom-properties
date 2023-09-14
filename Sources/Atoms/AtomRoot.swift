@@ -91,7 +91,7 @@ public struct AtomRoot<Content: View>: View {
     ///
     /// - Returns: The self instance.
     public func override<Node: Atom>(_ atom: Node, with value: @escaping (Node) -> Node.Loader.Value) -> Self {
-        mutating { $0.overrides[OverrideKey(atom)] = AtomOverride(value: value) }
+        mutating { $0.overrides[OverrideKey(atom)] = AtomOverride(value: value, atom: atom) }
     }
 
     /// Overrides the atom value with the given value.
@@ -106,9 +106,12 @@ public struct AtomRoot<Content: View>: View {
     ///   - value: A value that to be used instead of the atom's value.
     ///
     /// - Returns: The self instance.
+    
+    /*
     public func override<Node: Atom>(_ atomType: Node.Type, with value: @escaping (Node) -> Node.Loader.Value) -> Self {
         mutating { $0.overrides[OverrideKey(atomType)] = AtomOverride(value: value) }
     }
+     */
 }
 
 private extension AtomRoot {

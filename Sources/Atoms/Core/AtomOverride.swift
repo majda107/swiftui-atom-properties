@@ -8,9 +8,11 @@ internal protocol AtomOverrideProtocol {
 
 internal struct AtomOverride<Node: Atom>: AtomOverrideProtocol {
     let value: (Node) -> Node.Loader.Value
+    
+    let atom: Node
 
     func scoped(key: ScopeKey) -> any AtomScopedOverrideProtocol {
-        AtomScopedOverride<Node>(scopeKey: key, value: value)
+        AtomScopedOverride<Node>(scopeKey: key, value: value, atom: atom)
     }
 }
 
@@ -22,9 +24,22 @@ internal struct AtomOverride<Node: Atom>: AtomOverrideProtocol {
 // independent of the SwiftUI lifecycle is came up.
 internal protocol AtomScopedOverrideProtocol {
     var scopeKey: ScopeKey { get }
+    
+    func getAtomKey() -> AtomKey
+    func getAtom() -> any Atom
 }
 
 internal struct AtomScopedOverride<Node: Atom>: AtomScopedOverrideProtocol {
     let scopeKey: ScopeKey
     let value: (Node) -> Node.Loader.Value
+    
+    let atom: Node
+    
+    func getAtomKey() -> AtomKey {
+        return AtomKey(atom, overrideScopeKey: scopeKey)
+    }
+    
+    func getAtom() -> any Atom {
+        return atom
+    }
 }
