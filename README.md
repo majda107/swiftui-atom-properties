@@ -35,6 +35,137 @@
 
 ---
 
+## Override reactivity fix
+
+Purpose of this fork is to hotfix .override function on AtomScope which does not propagate reactive changes.
+Test example:
+
+```
+import SwiftUI
+import Atoms
+
+struct TestTrip {
+    var id: String
+}
+
+
+
+struct TestScopeAtom: ValueAtom, Hashable {
+    func value(context: Context) -> TestTrip? {
+        nil
+    }
+}
+
+/*
+struct TestScopeAtom: StateAtom, Hashable {
+    func defaultValue(context: Context) -> TestTrip? {
+        nil
+    }
+}
+*/
+
+struct TestScopeReadIdAtom: ValueAtom, Hashable {
+    func value(context: Context) -> String {
+        // we watch the scope atom in order to propagate changes with reactivity
+        let scopeAtom = context.watch(TestScopeAtom())
+        return scopeAtom?.id ?? "no id"
+    }
+}
+
+struct TestScopeSelectIdAtom: ValueAtom, Hashable {
+    func value(context: Context) -> String {
+        context.watch(TestScopeAtom().select(\.?.id)) ?? "no id"
+    }
+}
+
+struct AtomsPlaygroundScreen: View {
+    @State private var newTripId: String? = nil // state for current trip (id), simulates path input...
+    
+    let store = AtomStore()
+    
+    var body: some View {
+        AtomScope(store) {
+                VStack {
+                    Text("STATE TRIP ID - \(newTripId ?? "no id")") // id read directly from state (simulates input path)
+                    AtomsPlaygroundScreenInner()
+                    
+                    VStack {
+                        Button {
+                            newTripId = nil
+                        } label: {
+                            Text("set id = nil")
+                        }
+                        
+                        Button {
+                            newTripId = "1"
+                        } label: {
+                            Text("set id = 1")
+                        }
+                        
+                        Button {
+                            newTripId = "2"
+                        } label: {
+                            Text("set id = 2")
+                        }
+                        
+                        Button {
+                            newTripId = "abc-453281"
+                        } label: {
+                            Text("set id = 'abc-453281'")
+                        }
+                    }
+                }
+        }
+        .override(TestScopeAtom()) { _ in
+            if let tripId = newTripId {
+                return TestTrip(id: tripId)
+            } else {
+                return nil
+            }
+        }
+        .id(newTripId ?? "no id") // .id ensures to refresh the view and call .override() modifier!
+    }
+}
+
+struct AtomsPlaygroundScreenInner: View {
+    @Watch(TestScopeAtom())
+    var scope
+    
+    @Watch(TestScopeAtom().select(\.?.id))
+    var selectScopeId
+    
+    /*
+    @Watch(TestScopeReadIdAtom())
+    var readId
+     */
+    
+    @ViewContext
+    var context
+    
+    var readId: String {
+        context.watch(TestScopeReadIdAtom())
+    }
+    
+    @Watch(TestScopeSelectIdAtom())
+    var selectIdAtom
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("SCOPE ATOM TRIP ID - \(scope?.id ?? "no id")") // id read from overridden scope atom
+            Text("SCOPE ATOM TRIP ID select - \(selectScopeId ?? "no id")") // id selected from overridden scope atom
+            Text("READ ATOM TRIP ID - \(readId)") // id read from 'read atom' that uses watch to get newest data
+            Text("SELECT ATOM TRIP ID - \(selectIdAtom)") // id selected from scope atom, using another atom and watch!
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.all, 20)
+    }
+}
+```
+
+Issue on original library: https://github.com/ra1028/swiftui-atom-properties/issues/78
+
+---
+
 ## Introduction
 
 <p align="center">
