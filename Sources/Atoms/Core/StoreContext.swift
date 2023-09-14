@@ -26,12 +26,16 @@ internal struct StoreContext {
         observers: [Observer],
         overrides: [OverrideKey: any AtomOverrideProtocol]
     ) -> Self {
-        StoreContext(
+        let sc = StoreContext(
             store,
             observers: observers,
             overrides: overrides.mapValues { $0.scoped(key: key) },
             enablesAssertion: false
         )
+        
+        sc.resetAllDanglingOverrides() // .override reactivity fix
+        
+        return sc
     }
 
     func scoped(
@@ -39,7 +43,7 @@ internal struct StoreContext {
         observers: [Observer],
         overrides: [OverrideKey: any AtomOverrideProtocol]
     ) -> Self {
-        StoreContext(
+        let sc = StoreContext(
             weakStore,
             observers: self.observers + observers,
             overrides: self.overrides.merging(
@@ -48,6 +52,10 @@ internal struct StoreContext {
             ),
             enablesAssertion: enablesAssertion
         )
+        
+        sc.resetAllDanglingOverrides() // .override reactivity fix
+        
+        return sc
     }
 
     @usableFromInline
@@ -594,5 +602,49 @@ private extension StoreContext {
         )
 
         return AtomStore()
+    }
+}
+
+
+// store context .override reactivity fix
+private extension StoreContext {
+    private func resetAllDanglingOverrides() {
+        let store = getStore()
+        
+        for childrenKey in store.graph.children.keys {
+            if !childrenKey.isOverridden { continue } // only reset overriden keys
+                
+            guard let children = store.graph.children[childrenKey] else { continue }
+            
+            for child in children {
+                // Reset the atom value and then notify update to downstream atoms.
+                if let cache = store.state.caches[child] {
+                    //reset(cache.atom)
+                    store.state.caches.removeValue(forKey: child)
+                    resetDanglingOverride(atom: cache.atom)
+                }
+            }
+        }
+        
+        // Notify value update to observers.
+        //notifyUpdateToObservers() // TODO: notify or not notify??
+    }
+    
+    private func resetDanglingOverride<Node: Atom>(atom: Node) {
+        let override = lookupOverride(of: atom)
+        let key = AtomKey(atom, overrideScopeKey: override?.scopeKey)
+        
+        let store = getStore()
+        
+        if let children = store.graph.children[key] {
+            for child in children {
+                // Reset the atom value and then notify update to downstream atoms.
+                
+                if let cache = store.state.caches[child] {
+                    store.state.caches.removeValue(forKey: child)
+                    resetDanglingOverride(atom: cache.atom)
+                }
+            }
+        }
     }
 }
